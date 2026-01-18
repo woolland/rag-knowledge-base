@@ -2,10 +2,10 @@ from typing import List
 from langchain_core.documents import Document
 
 
-def build_context(docs: List[Document], max_chars: int = 3500) -> str:
+def build_context(docs: List[Document], max_chars: int = 4000) -> str:
     """
-    Merge retrieved chunks into a single context string.
-    We cap length to avoid overly large responses.
+    Convert retrieved Documents into a single context string for the LLM.
+    Truncate to avoid overly long prompts.
     """
     parts = []
     total = 0
@@ -23,19 +23,3 @@ def build_context(docs: List[Document], max_chars: int = 3500) -> str:
         total += len(chunk)
 
     return "\n".join(parts)
-
-
-def mock_generate_answer(query: str, docs: List[Document]) -> str:
-    """
-    A placeholder 'generation' function.
-    It does NOT call an LLM.
-    It produces a readable answer based on retrieved text.
-    """
-    if not docs:
-        return "I don't know based on the provided document."
-
-    # Use the first chunk as the main signal
-    main = docs[0].page_content.strip().replace("\n", " ")
-    main = main[:300]
-
-    return f"(Mock Answer) Based on the retrieved context, the document is mainly about: {main}..."

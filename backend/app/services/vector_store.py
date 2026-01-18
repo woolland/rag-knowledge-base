@@ -14,7 +14,7 @@ def build_faiss_index(chunks: List[Document]) -> FAISS:
     return FAISS.from_documents(chunks, embeddings) #  Converts each chunk into a vector and Stores them into FAISS index
 
 
-def search_top_k(vector_store: FAISS, query: str, k: int = 3) -> List[Document]:
+def search_top_k(vector_store: FAISS, query: str, k: int = 5) -> List[Document]:
     return vector_store.similarity_search(query, k=k) # Performs semantic search using vector similarity
 
 

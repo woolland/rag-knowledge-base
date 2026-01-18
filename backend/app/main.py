@@ -6,6 +6,8 @@ import os
 
 from app.services.ingestion import load_and_chunk_pdf
 from app.services.vector_store import build_faiss_index, search_top_k
+from app.services.gemini_llm import generate_answer_gemini
+from app.services.prompting import build_context
 
 app = FastAPI(title="RAG Knowledge Base API")
 
@@ -64,13 +66,11 @@ async def index_and_search(file: UploadFile = File(...), query: str = "What is t
         }
     finally:
         os.remove(tmp_path)
-from app.services.prompting import build_context, mock_generate_answer
-
 
 @app.post("/ask")
 async def ask(file: UploadFile = File(...), query: str = "What is the main topic?"):
     """
-    Day5 goal: Retrieval + (Mock) Generation
+    Day5 goal: Retrieval
     """
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(await file.read())
@@ -83,8 +83,9 @@ async def ask(file: UploadFile = File(...), query: str = "What is the main topic
         top_k = 3
         results = search_top_k(vector_store, query=query, k=top_k)
 
+        #context = build_context(results)
         context = build_context(results)
-        answer = mock_generate_answer(query=query, docs=results)
+        answer = generate_answer_gemini(query=query, context=context)
 
         return {
             "filename": file.filename,
