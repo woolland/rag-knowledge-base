@@ -64,3 +64,42 @@ async def index_and_search(file: UploadFile = File(...), query: str = "What is t
         }
     finally:
         os.remove(tmp_path)
+from app.services.prompting import build_context, mock_generate_answer
+
+
+@app.post("/ask")
+async def ask(file: UploadFile = File(...), query: str = "What is the main topic?"):
+    """
+    Day5 goal: Retrieval + (Mock) Generation
+    """
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        chunks = load_and_chunk_pdf(tmp_path)
+        vector_store = build_faiss_index(chunks)
+
+        top_k = 3
+        results = search_top_k(vector_store, query=query, k=top_k)
+
+        context = build_context(results)
+        answer = mock_generate_answer(query=query, docs=results)
+
+        return {
+            "filename": file.filename,
+            "query": query,
+            "num_chunks": len(chunks),
+            "top_k": top_k,
+            "answer": answer,
+            "context_preview": context[:600],
+            "sources": [
+                {
+                    "content_preview": r.page_content[:200],
+                    "metadata": r.metadata,
+                }
+                for r in results
+            ],
+        }
+    finally:
+        os.remove(tmp_path)
