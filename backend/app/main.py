@@ -10,9 +10,14 @@ from app.services.vector_store import build_faiss_index, search_top_k
 from app.services.reranker import rerank_docs
 from app.services.prompting import build_context_with_citations
 from app.services.gemini_llm import generate_answer_gemini, stream_answer_gemini
-from sse_starlette.sse import EventSourceResponse
-from typing import Any, Dict
+from sse_starlette.sse import EventSourceResponse,ServerSentEvent
+from typing import Any, Dict,Generator
 import json, traceback, time
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from app.services.kb_store import save_kb, load_kb
+from fastapi import HTTPException
+from fastapi.responses import StreamingResponse
+
 
 app = FastAPI(title="RAG Knowledge Base API")
 
@@ -114,14 +119,6 @@ async def ask(file: UploadFile = File(...), query: str = "What is the main topic
 
 def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
-    
-import json
-import time
-from typing import Generator
-from fastapi.responses import StreamingResponse
-
-def sse(event: str, data: dict) -> str:
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 @app.post("/ask-stream")
 async def ask_stream(file: UploadFile = File(...), query: str = "What is the main topic?"):
@@ -178,3 +175,105 @@ async def ask_stream(file: UploadFile = File(...), query: str = "What is the mai
                 pass
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.post("/ingest")
+async def ingest(file: UploadFile = File(...), kb_id: str = "default"):
+    """
+    Day7: Ingest PDF into a persistent KB (FAISS saved on disk).
+    """
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        chunks = load_and_chunk_pdf(tmp_path)
+        vector_store = build_faiss_index(chunks)
+
+        base_dir = os.getenv("KB_STORAGE_DIR", "./storage")
+        saved_path = save_kb(vector_store=vector_store, kb_id=kb_id, base_dir=base_dir)
+
+        return {
+            "kb_id": kb_id,
+            "filename": file.filename,
+            "num_chunks": len(chunks),
+            "saved_path": saved_path,
+        }
+    finally:
+        os.remove(tmp_path)
+
+@app.post("/ask-kb")
+async def ask_kb(kb_id: str, query: str, fetch_k: int = 12, top_k: int = 3):
+    base_dir = os.getenv("KB_STORAGE_DIR", "./storage")
+
+    # 1) load kb from disk
+    vs = load_kb(kb_id=kb_id, base_dir=base_dir)
+
+    # 2) retrieve candidates
+    candidates = search_top_k(vs, query=query, k=fetch_k)
+
+    # 3) rerank
+    results = rerank_docs(query=query, docs=candidates, top_k=top_k)
+
+    # 4) build cited context
+    context, sources = build_context_with_citations(results)
+
+    # 5) generate grounded answer
+    answer = generate_answer_gemini(query=query, context=context)
+
+    return {
+        "kb_id": kb_id,
+        "query": query,
+        "fetch_k": fetch_k,
+        "top_k": top_k,
+        "answer": answer,
+        "sources": sources,
+    }
+
+
+@app.post("/ask-kb-stream")
+async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
+    base_dir = os.getenv("KB_STORAGE_DIR", "./storage")
+
+    async def event_generator():
+        token_count = 0
+        try:
+            # hide "event:"/"data:"
+            yield ServerSentEvent(event="debug", data=json.dumps({"step": "start", "kb_id": kb_id}, ensure_ascii=False))
+
+            vs = load_kb(kb_id=kb_id, base_dir=base_dir)
+            yield ServerSentEvent(event="debug", data=json.dumps({"step": "kb_loaded"}, ensure_ascii=False))
+
+            
+            fetch_k = 12
+            candidates = search_top_k(vs, query=query, k=fetch_k)
+            yield ServerSentEvent(event="debug", data=json.dumps({"step": "retrieved", "fetch_k": fetch_k, "got": len(candidates)}, ensure_ascii=False))
+
+            top_k = 3
+            results = rerank_docs(query=query, docs=candidates, top_k=top_k)
+            yield ServerSentEvent(event="debug", data=json.dumps({"step": "reranked", "top_k": top_k, "got": len(results)}, ensure_ascii=False))
+
+            context, sources = build_context_with_citations(results)
+            meta = {
+                "type": "meta",
+                "kb_id": kb_id,
+                "query": query,
+                "fetch_k": fetch_k,
+                "top_k": top_k,
+                "sources": sources,
+            }
+            yield ServerSentEvent(event="meta", data=json.dumps(meta, ensure_ascii=False))
+
+            yield ServerSentEvent(event="ping", data=json.dumps({"t": time.time(), "msg": "before_gemini_stream"}, ensure_ascii=False))
+
+            for delta in stream_answer_gemini(query=query, context=context):
+                token_count += 1
+                yield ServerSentEvent(event="token", data=json.dumps({"type": "token", "delta": delta}, ensure_ascii=False))
+
+        except FileNotFoundError:
+            yield ServerSentEvent(event="error", data=json.dumps({"type": "error", "message": f"KB '{kb_id}' not found in {base_dir}"}, ensure_ascii=False))
+        except Exception as e:
+            yield ServerSentEvent(event="error", data=json.dumps({"type": "error", "message": str(e)}, ensure_ascii=False))
+        finally:
+            yield ServerSentEvent(event="done", data=json.dumps({"type": "done", "token_count": token_count}, ensure_ascii=False))
+
+    return EventSourceResponse(event_generator())
