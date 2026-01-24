@@ -1,50 +1,44 @@
-from typing import List, Dict, Any, Tuple
+from __future__ import annotations
+from typing import List, Dict, Tuple, Any
 from langchain_core.documents import Document
 
 
-def build_context_with_citations(
-    docs: List[Document],
-    max_chars: int = 4000
-) -> Tuple[str, List[Dict[str, Any]]]:
+def build_context_with_citations(docs: List[Document]) -> Tuple[str, List[Dict[str, Any]], Dict[str, str]]:
     """
-    Returns:
-      - context string containing [Source S1 | page_label=... | page=...]
-      - sources list aligned to those S# labels
+    Build LLM context with [S1], [S2] markers and return:
+    - context: string
+    - sources: list of source metadata objects
+    - source_map: { "S1": "<chunk_id>", ... }
     """
-    parts: List[str] = []
-    sources: List[Dict[str, Any]] = []
-    total = 0
+    context_blocks = []
+    sources = []
+    source_map: Dict[str, str] = {}
 
-    for idx, doc in enumerate(docs, start=1):
-        text = (doc.page_content or "").strip()
-        if not text:
-            continue
-
+    for i, doc in enumerate(docs, start=1):
+        sid = f"S{i}"
         md = doc.metadata or {}
 
-        label = f"S{idx}"
-        page = md.get("page")
-        page_label = md.get("page_label")
+        chunk_id = md.get("chunk_id", "")
+        source_map[sid] = chunk_id
 
-        # ✅ Better header: contains both label + page info
-        chunk = f"[Source {label} | page_label={page_label} | page={page}]\n{text}\n"
-
-        if total + len(chunk) > max_chars:
-            break
-
-        parts.append(chunk)
-        total += len(chunk)
-
-        sources.append(
-            {
-                "source_id": label,
-                "page": page,
-                "page_label": page_label,
-                "total_pages": md.get("total_pages"),
-                "content_preview": text[:200],
-                "metadata": md,
-            }
+        context_blocks.append(
+            f"[{sid}] (page={md.get('page_label', md.get('page'))}, chunk_id={chunk_id})\n"
+            f"{doc.page_content.strip()}\n"
         )
 
-    context = "\n".join(parts)
-    return context, sources
+        sources.append({
+            "source_id": sid,
+            "chunk_id": chunk_id,
+            "chunk_index": md.get("chunk_index"),
+            "kb_id": md.get("kb_id"),
+            "filename": md.get("filename"),
+            "file_sha256": md.get("file_sha256"),
+            "page": md.get("page"),
+            "page_label": md.get("page_label"),
+            "total_pages": md.get("total_pages"),
+            "content_preview": doc.page_content[:220],
+            "metadata": md,
+        })
+
+    context = "\n---\n".join(context_blocks)
+    return context, sources, source_map
