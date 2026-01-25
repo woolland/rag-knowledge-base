@@ -1,0 +1,24 @@
+{
+  "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p2:c5",
+  "page_content": "Add request logging + basic timing\n(retrieval/LLM).\nLogs show latency per request.\ngit commit -m \"Day20\nobservability\"\nDay 21\nDemo ready\nAdd sample PDF + demo questions;\npolish UX.\nA friend can use it from README\nalone.\ngit commit -m \"Week3\nwrap\"\nNotes (fill in after you finish the week): What broke? What did you learn? What will you simplify next week?",
+  "metadata": {
+    "producer": "ReportLab PDF Library - www.reportlab.com",
+    "creator": "(unspecified)",
+    "creationdate": "2026-01-12T22:53:06+00:00",
+    "author": "(anonymous)",
+    "keywords": "",
+    "moddate": "2026-01-12T22:53:06+00:00",
+    "subject": "(unspecified)",
+    "title": "(anonymous)",
+    "trapped": "/False",
+    "source": "/var/folders/fm/kyxwx23s03s7f5_f3z_3v_300000gn/T/tmpxvjvdie4.pdf",
+    "total_pages": 4,
+    "page": 2,
+    "page_label": "3",
+    "kb_id": "demo",
+    "filename": "RAG_Project_Daily_Tasks_28_Days.pdf",
+    "file_sha256": "29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5",
+    "chunk_index": 5,
+    "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p2:c5"
+  }
+}

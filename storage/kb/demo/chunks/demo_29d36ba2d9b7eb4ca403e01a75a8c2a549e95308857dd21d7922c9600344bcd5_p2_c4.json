@@ -1,0 +1,24 @@
+{
+  "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p2:c4",
+  "page_content": "RAG Knowledge Base · 28-Day Plan  |  Page 3\nWeek 3 · Productization: Docker + Deployment + Demo\n Day\nFocus\nBuild\nVerify\nCommit\nDay 15\nDocker backend\nDockerfile for backend; run locally.\ndocker build/run; /docs reachable.\ngit commit -m \"Day15\ndocker backend\"\nDay 16\nDocker frontend\nDockerfile for frontend + docker-compose\nfor both.\ndocker-compose up runs both\nservices.\ngit commit -m \"Day16\ndocker compose\"\nDay 17\nDeploy prep\nPick host; define start commands;\ndocument env vars.\nLocal config mirrors deployment\ncommands.\ngit commit -m \"Day17\ndeploy prep\"\nDay 18\nDeploy backend\nDeploy backend; verify public\n<b>/health</b>.\nPublic /health returns ok.\ngit commit -m \"Day18\ndeploy backend\"\nDay 19\nDeploy frontend\nDeploy Streamlit; point to backend URL.\nPublic UI loads; can chat\nsuccessfully.\ngit commit -m \"Day19\ndeploy frontend\"\nDay 20\nObservability\nAdd request logging + basic timing\n(retrieval/LLM).\nLogs show latency per request.\ngit commit -m \"Day20\nobservability\"\nDay 21\nDemo ready",
+  "metadata": {
+    "producer": "ReportLab PDF Library - www.reportlab.com",
+    "creator": "(unspecified)",
+    "creationdate": "2026-01-12T22:53:06+00:00",
+    "author": "(anonymous)",
+    "keywords": "",
+    "moddate": "2026-01-12T22:53:06+00:00",
+    "subject": "(unspecified)",
+    "title": "(anonymous)",
+    "trapped": "/False",
+    "source": "/var/folders/fm/kyxwx23s03s7f5_f3z_3v_300000gn/T/tmpxvjvdie4.pdf",
+    "total_pages": 4,
+    "page": 2,
+    "page_label": "3",
+    "kb_id": "demo",
+    "filename": "RAG_Project_Daily_Tasks_28_Days.pdf",
+    "file_sha256": "29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5",
+    "chunk_index": 4,
+    "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p2:c4"
+  }
+}

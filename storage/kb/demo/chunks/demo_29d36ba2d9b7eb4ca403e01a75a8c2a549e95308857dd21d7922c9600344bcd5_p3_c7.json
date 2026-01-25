@@ -1,0 +1,24 @@
+{
+  "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p3:c7",
+  "page_content": "Day 27\nMock (project)\nDo 1 project walk-through mock; capture\nQ&A.\nNotion updated with Q&A + gaps.\ngit commit -m \"Day27\nmock\"\nDay 28\nFinal ship\nTag v1.0; verify demo URL + screenshots\n+ docs.\nEverything works from README;\nshare URL.\ngit commit -m \"Day28\nv1.0\"\nNotes (fill in after you finish the week): What broke? What did you learn? What will you simplify next week?",
+  "metadata": {
+    "producer": "ReportLab PDF Library - www.reportlab.com",
+    "creator": "(unspecified)",
+    "creationdate": "2026-01-12T22:53:06+00:00",
+    "author": "(anonymous)",
+    "keywords": "",
+    "moddate": "2026-01-12T22:53:06+00:00",
+    "subject": "(unspecified)",
+    "title": "(anonymous)",
+    "trapped": "/False",
+    "source": "/var/folders/fm/kyxwx23s03s7f5_f3z_3v_300000gn/T/tmpxvjvdie4.pdf",
+    "total_pages": 4,
+    "page": 3,
+    "page_label": "4",
+    "kb_id": "demo",
+    "filename": "RAG_Project_Daily_Tasks_28_Days.pdf",
+    "file_sha256": "29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5",
+    "chunk_index": 7,
+    "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p3:c7"
+  }
+}

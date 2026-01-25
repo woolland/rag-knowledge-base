@@ -1,0 +1,24 @@
+{
+  "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p1:c2",
+  "page_content": "RAG Knowledge Base · 28-Day Plan  |  Page 2\nWeek 2 · Quality: citations, memory, evaluation, docs\n Day\nFocus\nBuild\nVerify\nCommit\nDay 8\nCitations\nReturn source docs (page/chunk) in API\nresponse.\nAnswer includes a sources list with\npage numbers.\ngit commit -m \"Day8\ncitations\"\nDay 9\nUI citations\nRender citations in Streamlit under each\nanswer.\nCitations readable; no crash if\nmissing.\ngit commit -m \"Day9 UI\ncitations\"\nDay 10\nMemory (lite)\nStore last 3 turns in session_state; send\nto backend.\nFollow-up question resolves\nreferences (this/that).\ngit commit -m \"Day10 chat\nhistory\"\nDay 11\nChunk tuning\nMake chunk params configurable; log\nchunk stats.\nCompare 2 settings; note quality\ntrade-offs.\ngit commit -m \"Day11\nchunk config\"\nDay 12\nRetrieval quality\nAdd top_k control + optional scores; add\ntiny eval notes.\nRun 10 queries; record quick hit-rate\nnotes.\ngit commit -m \"Day12\nretrieval eval\"\nDay 13\nError handling\nHandle bad PDFs, empty queries, missing\nindex; friendly errors.",
+  "metadata": {
+    "producer": "ReportLab PDF Library - www.reportlab.com",
+    "creator": "(unspecified)",
+    "creationdate": "2026-01-12T22:53:06+00:00",
+    "author": "(anonymous)",
+    "keywords": "",
+    "moddate": "2026-01-12T22:53:06+00:00",
+    "subject": "(unspecified)",
+    "title": "(anonymous)",
+    "trapped": "/False",
+    "source": "/var/folders/fm/kyxwx23s03s7f5_f3z_3v_300000gn/T/tmpxvjvdie4.pdf",
+    "total_pages": 4,
+    "page": 1,
+    "page_label": "2",
+    "kb_id": "demo",
+    "filename": "RAG_Project_Daily_Tasks_28_Days.pdf",
+    "file_sha256": "29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5",
+    "chunk_index": 2,
+    "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p1:c2"
+  }
+}

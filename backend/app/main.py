@@ -11,6 +11,7 @@ from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
+
 from app.services.gemini_llm import generate_answer_gemini, stream_answer_gemini
 from app.services.ingestion import load_and_chunk_pdf
 from app.services.kb_store import kb_dir, kb_exists, load_kb, save_kb
@@ -19,6 +20,8 @@ from app.services.prompting import build_context_with_citations
 from app.services.reranker import rerank_docs
 from app.services.vector_store import build_faiss_index, search_top_k
 from app.services.kb_lookup import find_chunk_by_id
+from app.services.chunk_store import save_chunks,load_chunk
+from app.services.citation_utils import validate_citations
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../rag-knowledge-base
 DEFAULT_STORAGE_DIR = str(PROJECT_ROOT / "storage")
@@ -234,9 +237,11 @@ async def ingest(
             vs = load_kb(kb_id=kb_id, base_dir=base_dir)
             vs.add_documents(chunks)
             saved_path = save_kb(vector_store=vs, kb_id=kb_id, base_dir=base_dir)
+            saved_chunks = save_chunks(kb_dir=saved_path, docs=chunks)
         else:
             vs = build_faiss_index(chunks)
             saved_path = save_kb(vector_store=vs, kb_id=kb_id, base_dir=base_dir)
+            saved_chunks = save_chunks(kb_dir=saved_path, docs=chunks)
 
         # ✅ 3) 更新 manifest（只在真正写入时更新）
         os.makedirs(saved_path, exist_ok=True)
@@ -254,6 +259,7 @@ async def ingest(
             "filename": file.filename,
             "num_chunks": len(chunks),
             "saved_path": saved_path,
+            "saved_chunks": saved_chunks,
             "manifest": {
                 "total_files": manifest["total_files"],
                 "total_chunks": manifest["total_chunks"],
@@ -265,6 +271,19 @@ async def ingest(
             os.remove(tmp_path)
         except Exception:
             pass
+
+
+
+@app.get("/kb/chunk")
+async def get_chunk(
+    kb_id: str = Query(...),
+    chunk_id: str = Query(...),
+):
+    base_dir = get_base_dir()
+    dir_ = kb_dir(base_dir, kb_id)
+    payload = load_chunk(kb_dir=dir_, chunk_id=chunk_id)
+    return payload
+
 
 @app.post("/ask-kb")
 async def ask_kb(kb_id: str, query: str, fetch_k: int = 12, top_k: int = 3):
@@ -285,6 +304,8 @@ async def ask_kb(kb_id: str, query: str, fetch_k: int = 12, top_k: int = 3):
     # 5) generate grounded answer
     answer = generate_answer_gemini(query=query, context=context)
 
+    report = validate_citations(answer=answer, source_map=source_map)
+
     return {
         "kb_id": kb_id,
         "query": query,
@@ -293,6 +314,7 @@ async def ask_kb(kb_id: str, query: str, fetch_k: int = 12, top_k: int = 3):
         "answer": answer,
         "sources": sources,
         "source_map": source_map,
+        "citation_report": report,
     }
 
 

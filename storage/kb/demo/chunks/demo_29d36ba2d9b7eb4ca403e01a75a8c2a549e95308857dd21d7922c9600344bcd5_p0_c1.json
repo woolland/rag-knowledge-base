@@ -1,0 +1,24 @@
+{
+  "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p0:c1",
+  "page_content": "Add POST <b>/upload</b> + service\n<i>load_and_chunk_pdf</i>\n(PyPDFLoader + splitter).\nUpload a PDF; return\n<i>num_chunks</i> + sample chunk\nmetadata.\ngit commit -m \"Day3\ningestion + chunking\"\nDay 4\nEmbeddings +\nFAISS\nBuild FAISS index from chunks using\nembeddings; persist locally.\nBuild index; verify vector count\nequals chunks count.\ngit commit -m \"Day4\nembeddings + FAISS\"\nDay 5\nRetrieval-only API\nAdd <b>/search</b>: query -> top_k\nchunks (no LLM yet).\nQuery returns relevant chunk texts +\nmetadata.\ngit commit -m \"Day5\nretrieval endpoint\"\nDay 6\nRAG answer MVP\nUpdate <b>/chat</b>: retrieve -> LLM\nanswer (minimal prompt).\nAsk question; answer uses retrieved\ncontext (spot-check).\ngit commit -m \"Day6 RAG\nanswer MVP\"\nDay 7\nWeekly harden\nRefactor folders; add .env config; add\nbasic logging.\nRun backend + frontend end-to-end\nafter refactor.\ngit commit -m \"Week1\nwrap\"\nNotes (fill in after you finish the week): What broke? What did you learn? What will you simplify next week?",
+  "metadata": {
+    "producer": "ReportLab PDF Library - www.reportlab.com",
+    "creator": "(unspecified)",
+    "creationdate": "2026-01-12T22:53:06+00:00",
+    "author": "(anonymous)",
+    "keywords": "",
+    "moddate": "2026-01-12T22:53:06+00:00",
+    "subject": "(unspecified)",
+    "title": "(anonymous)",
+    "trapped": "/False",
+    "source": "/var/folders/fm/kyxwx23s03s7f5_f3z_3v_300000gn/T/tmpxvjvdie4.pdf",
+    "total_pages": 4,
+    "page": 0,
+    "page_label": "1",
+    "kb_id": "demo",
+    "filename": "RAG_Project_Daily_Tasks_28_Days.pdf",
+    "file_sha256": "29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5",
+    "chunk_index": 1,
+    "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p0:c1"
+  }
+}

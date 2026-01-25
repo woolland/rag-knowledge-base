@@ -1,0 +1,24 @@
+{
+  "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p3:c6",
+  "page_content": "RAG Knowledge Base · 28-Day Plan  |  Page 4\nWeek 4 · Polish: reliability + resume packaging\n Day\nFocus\nBuild\nVerify\nCommit\nDay 22\nPrompt + fallback\nAdd strict 'use context only' prompt +\nno-context fallback.\nWhen no context, model says it\ncannot answer.\ngit commit -m \"Day22\nprompt\"\nDay 23\nSecurity basics\nLimit upload size; sanitize filenames; keep\nsecrets out of repo.\nLarge file rejected; no secrets\ncommitted.\ngit commit -m \"Day23\nsecurity\"\nDay 24\nCaching\nCache index per file; avoid rebuilding\nevery chat.\nSecond query faster; cache-hit\nlogged.\ngit commit -m \"Day24\ncaching\"\nDay 25\nTesting\nAdd minimal pytest for ingestion + search.\npytest passes locally.\ngit commit -m \"Day25\ntests\"\nDay 26\nResume package\nWrite 3 resume bullets + 2-min project\nstory.\nYou can explain trade-offs clearly.\ngit commit -m \"Day26\nresume\"\nDay 27\nMock (project)\nDo 1 project walk-through mock; capture\nQ&A.\nNotion updated with Q&A + gaps.\ngit commit -m \"Day27\nmock\"\nDay 28\nFinal ship",
+  "metadata": {
+    "producer": "ReportLab PDF Library - www.reportlab.com",
+    "creator": "(unspecified)",
+    "creationdate": "2026-01-12T22:53:06+00:00",
+    "author": "(anonymous)",
+    "keywords": "",
+    "moddate": "2026-01-12T22:53:06+00:00",
+    "subject": "(unspecified)",
+    "title": "(anonymous)",
+    "trapped": "/False",
+    "source": "/var/folders/fm/kyxwx23s03s7f5_f3z_3v_300000gn/T/tmpxvjvdie4.pdf",
+    "total_pages": 4,
+    "page": 3,
+    "page_label": "4",
+    "kb_id": "demo",
+    "filename": "RAG_Project_Daily_Tasks_28_Days.pdf",
+    "file_sha256": "29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5",
+    "chunk_index": 6,
+    "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p3:c6"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p0:c0",
+  "page_content": "RAG Knowledge Base · 28-Day Plan  |  Page 1\n RAG Knowledge Base — 28-Day Daily Task Sheet\nPurpose: a day-by-day checklist you can upload to NotebookLM. Each day: Build → Verify → Commit. Time boxes\nassume Wed/Fri are deep-focus days.\nHow to use\n1) Do the Build items. 2) Run the Verify step exactly. 3) Commit with the suggested message. If you miss a day, do\nnot skip verification.\nWeek 1 · Walking Skeleton → Ingestion → RAG MVP\n Day\nFocus\nBuild\nVerify\nCommit\nDay 1\nBackend skeleton\nCreate FastAPI app + <b>/health</b> +\n<b>/chat</b> (mock).\nOpen <b>/docs</b>; test POST\n<b>/chat</b> returns mock JSON.\ngit commit -m \"Day1\nbackend skeleton\"\nDay 2\nFrontend skeleton\nCreate Streamlit chat UI calling backend\n<b>/chat</b>.\nStreamlit shows backend response;\nhandles connection errors.\ngit commit -m \"Day2\nfrontend skeleton\"\nDay 3\nPDF ingestion\nAdd POST <b>/upload</b> + service\n<i>load_and_chunk_pdf</i>\n(PyPDFLoader + splitter).\nUpload a PDF; return\n<i>num_chunks</i> + sample chunk\nmetadata.",
+  "metadata": {
+    "producer": "ReportLab PDF Library - www.reportlab.com",
+    "creator": "(unspecified)",
+    "creationdate": "2026-01-12T22:53:06+00:00",
+    "author": "(anonymous)",
+    "keywords": "",
+    "moddate": "2026-01-12T22:53:06+00:00",
+    "subject": "(unspecified)",
+    "title": "(anonymous)",
+    "trapped": "/False",
+    "source": "/var/folders/fm/kyxwx23s03s7f5_f3z_3v_300000gn/T/tmpxvjvdie4.pdf",
+    "total_pages": 4,
+    "page": 0,
+    "page_label": "1",
+    "kb_id": "demo",
+    "filename": "RAG_Project_Daily_Tasks_28_Days.pdf",
+    "file_sha256": "29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5",
+    "chunk_index": 0,
+    "chunk_id": "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p0:c0"
+  }
+}
