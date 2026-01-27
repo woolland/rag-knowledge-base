@@ -20,6 +20,7 @@ from app.services.vector_store import build_faiss_index, search_top_k
 from app.services.kb_lookup import find_chunk_by_id
 from app.services.chunk_store import save_chunks,load_chunk,find_chunk_by_id
 from app.services.citation_utils import validate_citations
+from app.services.quality_gate import apply_quality_gate, build_fallback_answer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../rag-knowledge-base
 DEFAULT_STORAGE_DIR = str(PROJECT_ROOT / "storage")
@@ -318,6 +319,15 @@ async def ask_kb(kb_id: str, query: str, fetch_k: int = 12, top_k: int = 3):
 
     report = validate_citations(answer=answer, source_map=source_map)
 
+    gate = apply_quality_gate(report)
+
+    if gate["decision"] == "fallback":
+        answer = build_fallback_answer(sources)
+    elif gate["decision"] == "reject":
+        # 两种策略：要么直接报错，要么返回固定拒绝文案
+        # 推荐：返回固定拒绝文案（更产品化），但也把 gate 带上
+        answer = "I could not generate a grounded answer for this query."
+
     return {
         "kb_id": kb_id,
         "query": query,
@@ -327,6 +337,7 @@ async def ask_kb(kb_id: str, query: str, fetch_k: int = 12, top_k: int = 3):
         "sources": sources,
         "source_map": source_map,
         "citation_report": report,
+        "quality_gate": gate,
     }
 
 
@@ -336,13 +347,15 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
 
     async def event_generator():
         token_count = 0
+        final_parts = []          # ✅ NEW: collect streamed tokens
+        source_map = {}           # ✅ NEW: keep for done report
+        final_text_parts = []
+
         try:
-            # hide "event:"/"data:"
             yield ServerSentEvent(event="debug", data=json.dumps({"step": "start", "kb_id": kb_id}, ensure_ascii=False))
 
             vs = load_kb(kb_id=kb_id, base_dir=base_dir)
             yield ServerSentEvent(event="debug", data=json.dumps({"step": "kb_loaded"}, ensure_ascii=False))
-
 
             fetch_k = 12
             candidates = search_top_k(vs, query=query, k=fetch_k)
@@ -354,6 +367,7 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
 
             context, sources, source_map = build_context_with_citations(results)
             yield ServerSentEvent(event="debug", data=json.dumps({"step": "context_built", "context_len": len(context)}, ensure_ascii=False))
+
             meta = {
                 "type": "meta",
                 "kb_id": kb_id,
@@ -361,7 +375,7 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
                 "fetch_k": fetch_k,
                 "top_k": top_k,
                 "sources": sources,
-                "source_map": source_map,
+                "source_map": source_map,   # ✅ already added
             }
             yield ServerSentEvent(event="meta", data=json.dumps(meta, ensure_ascii=False))
 
@@ -369,6 +383,7 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
 
             for delta in stream_answer_gemini(query=query, context=context):
                 token_count += 1
+                final_text_parts.append(delta)
                 yield ServerSentEvent(event="token", data=json.dumps({"type": "token", "delta": delta}, ensure_ascii=False))
 
         except FileNotFoundError:
@@ -376,7 +391,29 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
         except Exception as e:
             yield ServerSentEvent(event="error", data=json.dumps({"type": "error", "message": str(e)}, ensure_ascii=False))
         finally:
-            yield ServerSentEvent(event="done", data=json.dumps({"type": "done", "token_count": token_count}, ensure_ascii=False))
+            final_answer = "".join(final_text_parts).strip()
+
+            report = validate_citations(answer=final_answer, source_map=source_map)
+            gate = apply_quality_gate(report)
+
+            if gate["decision"] == "fallback":
+                final_answer = build_fallback_answer(sources)
+            elif gate["decision"] == "reject":
+                final_answer = "I could not generate a grounded answer for this query."
+
+            yield ServerSentEvent(
+                event="done",
+                data=json.dumps(
+                    {
+                        "type": "done",
+                        "token_count": token_count,
+                        "final_answer": final_answer,
+                        "citation_report": report,
+                        "quality_gate": gate,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
 
     return EventSourceResponse(event_generator())
 
