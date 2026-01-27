@@ -1,13 +1,13 @@
 {
   "kb_id": "demo",
   "created_at": 1769042262.982979,
-  "updated_at": 1769317307.28987,
+  "updated_at": 1769487775.560968,
   "files": [
     {
       "filename": "RAG_Project_Daily_Tasks_28_Days.pdf",
       "sha256": "29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5",
       "num_chunks": 8,
-      "ingested_at": 1769317307.289867,
+      "ingested_at": 1769487775.5609658,
       "mode": "overwrite"
     }
   ],

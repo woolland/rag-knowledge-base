@@ -5,13 +5,11 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Generator
+from typing import Generator,Optional
 
 from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 from fastapi.responses import StreamingResponse
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
-
-
 from app.services.gemini_llm import generate_answer_gemini, stream_answer_gemini
 from app.services.ingestion import load_and_chunk_pdf
 from app.services.kb_store import kb_dir, kb_exists, load_kb, save_kb
@@ -20,7 +18,7 @@ from app.services.prompting import build_context_with_citations
 from app.services.reranker import rerank_docs
 from app.services.vector_store import build_faiss_index, search_top_k
 from app.services.kb_lookup import find_chunk_by_id
-from app.services.chunk_store import save_chunks,load_chunk
+from app.services.chunk_store import save_chunks,load_chunk,find_chunk_by_id
 from app.services.citation_utils import validate_citations
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../rag-knowledge-base
@@ -273,7 +271,7 @@ async def ingest(
             pass
 
 
-
+# Deprecated: use /kb/{kb_id}/chunk/{chunk_id}
 @app.get("/kb/chunk")
 async def get_chunk(
     kb_id: str = Query(...),
@@ -283,6 +281,20 @@ async def get_chunk(
     dir_ = kb_dir(base_dir, kb_id)
     payload = load_chunk(kb_dir=dir_, chunk_id=chunk_id)
     return payload
+
+@app.get("/kb/{kb_id}/chunk/{chunk_id}")
+def get_chunk_rest(kb_id: str, chunk_id: str):
+    base_dir = get_base_dir()
+    kb_path = kb_dir(base_dir, kb_id)
+
+    try:
+        payload = load_chunk(kb_dir=kb_path, chunk_id=chunk_id)
+        return payload
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"chunk_id not found: {chunk_id}"
+        )
 
 
 @app.post("/ask-kb")
@@ -368,8 +380,12 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
 
     return EventSourceResponse(event_generator())
 
-@app.get("/kb/{kb_id}/chunk/{chunk_id}")
-def get_chunk(kb_id: str, chunk_id: str):
+@app.get("/kb/chunk")
+def get_chunk(
+    kb_id: str = Query(...),
+    chunk_id: str = Query(...),
+    include_content: bool = Query(True),
+):
     base_dir = get_base_dir()
     vs = load_kb(kb_id=kb_id, base_dir=base_dir)
 
@@ -378,13 +394,18 @@ def get_chunk(kb_id: str, chunk_id: str):
         raise HTTPException(status_code=404, detail=f"chunk_id not found: {chunk_id}")
 
     md = doc.metadata or {}
-    return {
+
+    payload = {
         "kb_id": kb_id,
         "chunk_id": chunk_id,
+        "page_content": doc.page_content if include_content else None,
+        "metadata": md,
+        # 这些扁平字段是 UI 友好的，可保留
         "filename": md.get("filename"),
         "page": md.get("page"),
         "page_label": md.get("page_label"),
         "chunk_index": md.get("chunk_index"),
-        "content": doc.page_content,
-        "metadata": md,
     }
+    return payload
+
+
