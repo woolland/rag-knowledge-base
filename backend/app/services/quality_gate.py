@@ -4,28 +4,24 @@ from typing import Any, Dict, List
 
 def apply_quality_gate(report: Dict[str, Any]) -> Dict[str, str]:
     """
-    Decide if we accept the model answer based on citation_report.
-
-    Returns:
-      {
-        "decision": "accept" | "fallback" | "reject",
-        "reason": "ok" | "missing_citation" | "no_citation_used" | "parse_failed"
-      }
+    Accept either:
+      A) citation report (flat): {"used":..., "missing":..., "ok":..., "parse_ok":...}
+      B) evaluation report (nested): {"citation": {...}, "retrieval": {...}, "ok":...}
     """
-    # 如果你 report 里有 parse_ok/parse_failed 之类字段，就在这里先处理
-    if report.get("parse_ok") is False:
+    citation = report.get("citation", report)  # ✅关键：兼容 nested / flat
+
+    # parse_ok / ok 字段兼容
+    if citation.get("parse_ok") is False:
         return {"decision": "reject", "reason": "parse_failed"}
 
-    used = report.get("used") or []
-    missing = report.get("missing") or []
-    ok = bool(report.get("ok"))
+    used = citation.get("used") or []
+    missing = citation.get("missing") or []
+    ok = bool(citation.get("ok"))
 
     if not used:
-        # 模型完全没引用
         return {"decision": "reject", "reason": "no_citation_used"}
 
     if missing or not ok:
-        # 引用了不存在的 S# 或 report.ok=false
         return {"decision": "fallback", "reason": "missing_citation"}
 
     return {"decision": "accept", "reason": "ok"}

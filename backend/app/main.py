@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import json
-import os
-import tempfile
-import time
+import json, os, tempfile, time
 from pathlib import Path
-from typing import Generator,Optional
+from typing import Any, Dict, Generator, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, Query, HTTPException
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
+
+from langchain_core.documents import Document
+
 from app.services.gemini_llm import generate_answer_gemini, stream_answer_gemini
 from app.services.ingestion import load_and_chunk_pdf
 from app.services.kb_store import kb_dir, kb_exists, load_kb, save_kb
@@ -17,14 +18,36 @@ from app.services.manifest_store import file_sha256, has_sha256, load_manifest, 
 from app.services.prompting import build_context_with_citations
 from app.services.reranker import rerank_docs
 from app.services.vector_store import build_faiss_index, search_top_k
-from app.services.kb_lookup import find_chunk_by_id
-from app.services.chunk_store import save_chunks,load_chunk,find_chunk_by_id
+from app.services.chunk_store import save_chunks, load_chunk
 from app.services.citation_utils import validate_citations
+from app.services.eval_retrieval import evaluate_retrieval
 from app.services.quality_gate import apply_quality_gate, build_fallback_answer
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../rag-knowledge-base
 DEFAULT_STORAGE_DIR = str(PROJECT_ROOT / "storage")
 app = FastAPI(title="RAG Knowledge Base API")
+class AskRequest(BaseModel):
+    kb_id: str
+    query: str
+    fetch_k: int = 12
+    top_k: int = 3
+
+def build_eval_report(
+    answer: str,
+    source_map: Dict[str, str],
+    retrieved_docs: List[Document],
+) -> Dict[str, Any]:
+    citation = validate_citations(answer=answer, source_map=source_map)
+
+    used_chunk_ids = [source_map[sid] for sid in citation["used"] if sid in source_map]
+
+    retrieval = evaluate_retrieval(
+        retrieved_docs=retrieved_docs,
+        used_chunk_ids=used_chunk_ids,
+    )
+
+    return {"citation": citation, "retrieval": retrieval, "ok": bool(citation["ok"]) and bool(retrieval["ok"])}
+
 def get_base_dir() -> str:
     return os.getenv("KB_STORAGE_DIR", DEFAULT_STORAGE_DIR)
 
@@ -34,22 +57,15 @@ def health():
 
 
 @app.post("/upload")
-async def upload_pdf(file: UploadFile = File(...)):
-    """
-    Upload a PDF and return chunking preview.
-    """
+async def upload_pdf(file: UploadFile = File(...), kb_id: str = "default"):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(await file.read())
         tmp_path = tmp.name
 
     try:
         file_hash = file_sha256(tmp_path)
-        chunks = load_and_chunk_pdf(tmp_path,kb_id=kb_id,filename=file.filename,file_sha256=file_hash)
-        return {
-            "filename": file.filename,
-            "num_chunks": len(chunks),
-            "sample_chunk": chunks[0].page_content[:300] if chunks else ""
-        }
+        chunks = load_and_chunk_pdf(tmp_path, kb_id=kb_id, filename=file.filename, file_sha256=file_hash)
+        return {"filename": file.filename, "kb_id": kb_id, "num_chunks": len(chunks), "sample_chunk": chunks[0].page_content[:300] if chunks else ""}
     finally:
         os.remove(tmp_path)
 
@@ -273,8 +289,8 @@ async def ingest(
 
 
 # Deprecated: use /kb/{kb_id}/chunk/{chunk_id}
-@app.get("/kb/chunk")
-async def get_chunk(
+@app.get("/kb/chunk-legacy")
+async def get_chunk_legacy(
     kb_id: str = Query(...),
     chunk_id: str = Query(...),
 ):
@@ -299,33 +315,26 @@ def get_chunk_rest(kb_id: str, chunk_id: str):
 
 
 @app.post("/ask-kb")
-async def ask_kb(kb_id: str, query: str, fetch_k: int = 12, top_k: int = 3):
+async def ask_kb(req:AskRequest):
+    kb_id = req.kb_id
+    query = req.query
+    fetch_k = req.fetch_k
+    top_k = req.top_k
     base_dir = get_base_dir()
 
-    # 1) load kb from disk
     vs = load_kb(kb_id=kb_id, base_dir=base_dir)
-
-    # 2) retrieve candidates
     candidates = search_top_k(vs, query=query, k=fetch_k)
-
-    # 3) rerank
     results = rerank_docs(query=query, docs=candidates, top_k=top_k)
 
-    # 4) build cited context
     context, sources, source_map = build_context_with_citations(results)
-
-    # 5) generate grounded answer
     answer = generate_answer_gemini(query=query, context=context)
 
-    report = validate_citations(answer=answer, source_map=source_map)
-
+    report = build_eval_report(answer=answer, source_map=source_map, retrieved_docs=results)
     gate = apply_quality_gate(report)
 
     if gate["decision"] == "fallback":
         answer = build_fallback_answer(sources)
     elif gate["decision"] == "reject":
-        # 两种策略：要么直接报错，要么返回固定拒绝文案
-        # 推荐：返回固定拒绝文案（更产品化），但也把 gate 带上
         answer = "I could not generate a grounded answer for this query."
 
     return {
@@ -336,10 +345,9 @@ async def ask_kb(kb_id: str, query: str, fetch_k: int = 12, top_k: int = 3):
         "answer": answer,
         "sources": sources,
         "source_map": source_map,
-        "citation_report": report,
+        "evaluation": report,        # ✅ 建议叫 evaluation（更语义化）
         "quality_gate": gate,
     }
-
 
 @app.post("/ask-kb-stream")
 async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
@@ -347,9 +355,10 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
 
     async def event_generator():
         token_count = 0
-        final_parts = []          # ✅ NEW: collect streamed tokens
-        source_map = {}           # ✅ NEW: keep for done report
         final_text_parts = []
+        source_map = {}
+        sources = []
+        results = []
 
         try:
             yield ServerSentEvent(event="debug", data=json.dumps({"step": "start", "kb_id": kb_id}, ensure_ascii=False))
@@ -375,7 +384,7 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
                 "fetch_k": fetch_k,
                 "top_k": top_k,
                 "sources": sources,
-                "source_map": source_map,   # ✅ already added
+                "source_map": source_map,
             }
             yield ServerSentEvent(event="meta", data=json.dumps(meta, ensure_ascii=False))
 
@@ -393,7 +402,7 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
         finally:
             final_answer = "".join(final_text_parts).strip()
 
-            report = validate_citations(answer=final_answer, source_map=source_map)
+            report = build_eval_report(answer=final_answer, source_map=source_map, retrieved_docs=results)
             gate = apply_quality_gate(report)
 
             if gate["decision"] == "fallback":
@@ -408,7 +417,7 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
                         "type": "done",
                         "token_count": token_count,
                         "final_answer": final_answer,
-                        "citation_report": report,
+                        "evaluation": report,
                         "quality_gate": gate,
                     },
                     ensure_ascii=False,
