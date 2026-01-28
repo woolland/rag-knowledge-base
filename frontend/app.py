@@ -11,39 +11,48 @@ BACKEND = "http://127.0.0.1:8000"
 
 def parse_citations(answer: str) -> List[str]:
     """
-    Extract citation tokens like [S1], [S2] from the answer.
-    Returns a deduped list preserving first-seen order.
+    Extract citation tokens like S1, S2 from the answer.
+    Supports formats: [S1] and [S1, S2, S3].
+    Deduped, preserves first-seen order.
     """
-    found = re.findall(r"\[S(\d+)\]", answer or "")
+    answer = answer or ""
+    # find all occurrences of S<number>
+    found = re.findall(r"\bS(\d+)\b", answer)
     seen = set()
     out = []
     for n in found:
-        key = f"S{n}"
-        if key not in seen:
-            seen.add(key)
-            out.append(key)
+        sid = f"S{n}"
+        if sid not in seen:
+            seen.add(sid)
+            out.append(sid)
     return out
 
 
-def ask_kb(kb_id: str, query: str) -> Dict[str, Any]:
+def ask_kb(kb_id: str, query: str, fetch_k: int = 12, top_k: int = 3) -> Dict[str, Any]:
     """
-    Call backend /ask-kb and return JSON payload.
+    Call backend /ask-kb (JSON body) and return JSON payload.
     """
     url = f"{BACKEND}/ask-kb"
-    resp = requests.post(url, params={"kb_id": kb_id, "query": query}, timeout=60)
+    payload = {
+        "kb_id": kb_id,
+        "query": query,
+        "fetch_k": fetch_k,
+        "top_k": top_k,
+    }
+    resp = requests.post(url, json=payload, timeout=60)
     resp.raise_for_status()
     return resp.json()
 
-
 def fetch_chunk(kb_id: str, chunk_id: str) -> Dict[str, Any]:
     """
-    Fetch a chunk evidence payload by chunk_id.
-    Note: path params may require URL encoding if chunk_id contains ':'.
-    If you expose query version (/kb/chunk?kb_id=...&chunk_id=...), use that instead.
+    Fetch a chunk evidence payload by chunk_id using query endpoint (recommended).
     """
-    # safer encoding:
-    url = f"{BACKEND}/kb/{kb_id}/chunk/{requests.utils.quote(chunk_id, safe='')}"
-    resp = requests.get(url, timeout=30)
+    url = f"{BACKEND}/kb/chunk"
+    resp = requests.get(
+        url,
+        params={"kb_id": kb_id, "chunk_id": chunk_id, "include_content": True},
+        timeout=30,
+    )
     resp.raise_for_status()
     return resp.json()
 
@@ -78,18 +87,26 @@ if "selected_source" not in st.session_state:
     st.session_state["selected_source"] = None
 if "last_result" not in st.session_state:
     st.session_state["last_result"] = None
+if "kb_id" not in st.session_state:
+    st.session_state["kb_id"] = "demo"
+if "query" not in st.session_state:
+    st.session_state["query"] = "What is the plan for?"
 
 col_left, col_right = st.columns([1.4, 1.0])
 
 with col_left:
     st.subheader("Ask")
-    kb_id = st.text_input("KB ID", value="demo")
-    query = st.text_input("Query", value="What is the plan for?")
+    kb_id = st.text_input("KB ID", value=st.session_state["kb_id"])
+    query = st.text_input("Query", value=st.session_state["query"])
     if st.button("Ask KB"):
         try:
+            st.session_state["kb_id"] = kb_id
+            st.session_state["query"] = query
+
             result = ask_kb(kb_id=kb_id, query=query)
             st.session_state["last_result"] = result
             st.session_state["selected_source"] = None
+ 
         except requests.HTTPError as e:
             st.error(f"Backend error: {e}")
         except requests.RequestException as e:
@@ -116,7 +133,7 @@ with col_left:
 
 with col_right:
     st.subheader("Evidence Panel")
-
+    kb_id = st.session_state.get("kb_id", "demo")
     result = st.session_state["last_result"]
     if not result:
         st.info("Ask a question to see evidence.")

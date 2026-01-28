@@ -1,0 +1,20 @@
+[
+    {
+      "id": "plan_overview",
+      "kb_id": "demo",
+      "query": "What is the plan for?",
+      "expected_chunk_ids": [
+        "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p0:c0",
+        "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p1:c2",
+        "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p3:c6"
+      ]
+    },
+    {
+      "id": "week2_quality",
+      "kb_id": "demo",
+      "query": "What does Week 2 focus on?",
+      "expected_chunk_ids": [
+        "demo:29d36ba2d9b7eb4ca403e01a75a8c2a549e95308857dd21d7922c9600344bcd5:p1:c2"
+      ]
+    }
+  ]
