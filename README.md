@@ -23,22 +23,23 @@ To maintain specialized reliability, this system explicitly **does not** aim to 
 
 ## System Contracts
 
-The system enforces the following contracts during the Answer Generation phase:
+The system enforces the following contracts during the Answer Generation phase.
 
-**Contract: Answer Generation Flow**
+### Contract: Answer Generation Flow
 
 ```mermaid
 graph TD
-    A[User Query] --> B{Retrieval OK?}
-    B -- No --> C[Fallback / Reject (retrieval_miss)]
-    B -- Yes --> D[LLM Generation]
-    D --> E{Quality Gate Check}
-    E -- Check 1 --> F{Valid Citations?}
-    F -- No --> G[Fallback (citation_miss)]
-    E -- Check 2 --> H{Evidence Supported?}
-    H -- No --> I[Fallback (evidence_miss)]
-    F -- Yes --> J[Accept & Return Answer]
-    H -- Yes --> J
+  A[User Query] --> B{Retrieval OK?}
+
+  B -- no --> C[Fallback or Reject]
+  B -- yes --> D[LLM Generation]
+  D --> E{Quality Gate}
+
+  E -- citation_miss --> G[Fallback]
+  E -- evidence_miss --> I[Fallback]
+  E -- pass --> J[Accept]
+
+  %% Retrieval failure => retrieval_miss
 ```
 
 **Logical Contract:**
@@ -48,8 +49,6 @@ graph TD
     *   **THEN** Decision is `fallback`. A transparent, citations-only summary is returned.
 3.  **ELSE**:
     *   **THEN** Decision is `reject`. A specific error reason is returned.
-
-
 
 ## Quick Start
 
@@ -65,3 +64,4 @@ graph TD
 # Run Regression Tests
 ./scripts/gate_regression.sh
 ```
+
