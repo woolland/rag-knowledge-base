@@ -1,28 +1,31 @@
-from __future__ import annotations
-
 from typing import Any, Dict, List
 
-def apply_quality_gate(report: Dict[str, Any]) -> Dict[str, str]:
+from app.services.error_taxonomy import (
+    EVIDENCE_MISS,
+    CITATION_MISS,
+    RETRIEVAL_MISS,
+)
+
+def quality_gate_decision(evaluation: Dict[str, Any]) -> Dict[str, str]:
     """
-    Accept either:
-      A) citation report (flat): {"used":..., "missing":..., "ok":..., "parse_ok":...}
-      B) evaluation report (nested): {"citation": {...}, "retrieval": {...}, "ok":...}
+    Decide whether to accept or reject the answer based on evaluation metrics.
+    Strict quality gate: any failure in citation or retrieval leads to rejection.
     """
-    citation = report.get("citation", report)  # ✅关键：兼容 nested / flat
+    citation = evaluation.get("citation", {})
+    retrieval = evaluation.get("retrieval", {})
+    evidence_hit = evaluation.get("evidence_hit", False)
 
-    # parse_ok / ok 字段兼容
-    if citation.get("parse_ok") is False:
-        return {"decision": "reject", "reason": "parse_failed"}
+    if not citation.get("ok"):
+        return {"decision": "fallback", "reason": CITATION_MISS}
 
-    used = citation.get("used") or []
-    missing = citation.get("missing") or []
-    ok = bool(citation.get("ok"))
+    if not retrieval.get("ok"):
+        return {"decision": "fallback", "reason": RETRIEVAL_MISS}
 
-    if not used:
-        return {"decision": "reject", "reason": "no_citation_used"}
+    if not evidence_hit:
+        return {"decision": "fallback", "reason": EVIDENCE_MISS}
 
-    if missing or not ok:
-        return {"decision": "fallback", "reason": "missing_citation"}
+    if not evaluation.get("ok", True):
+        return {"decision": "fallback", "reason": EVIDENCE_MISS}
 
     return {"decision": "accept", "reason": "ok"}
 

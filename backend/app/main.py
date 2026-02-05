@@ -5,7 +5,9 @@ from pathlib import Path
 from typing import Any, Dict, Generator, List, Optional
 
 from fastapi import FastAPI, UploadFile, File, Query, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, UploadFile, File, Query, HTTPException
+from fastapi.responses import StreamingResponse, JSONResponse
+import traceback
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
@@ -21,7 +23,9 @@ from app.services.vector_store import build_faiss_index, search_top_k
 from app.services.chunk_store import save_chunks, load_chunk
 from app.services.citation_utils import validate_citations
 from app.services.eval_retrieval import evaluate_retrieval
-from app.services.quality_gate import apply_quality_gate, build_fallback_answer
+from app.services.quality_gate import quality_gate_decision, build_fallback_answer
+from app.services.kb_lookup import find_chunk_by_id
+from app.services.metrics import emit_quality_metrics
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]  # .../rag-knowledge-base
 DEFAULT_STORAGE_DIR = str(PROJECT_ROOT / "storage")
@@ -46,7 +50,16 @@ def build_eval_report(
         used_chunk_ids=used_chunk_ids,
     )
 
-    return {"citation": citation, "retrieval": retrieval, "ok": bool(citation["ok"]) and bool(retrieval["ok"])}
+    retrieved_ids = {d.metadata.get("chunk_id") for d in retrieved_docs if d.metadata}
+    evidence_hit = any(cid in retrieved_ids for cid in used_chunk_ids)
+
+    ok = bool(citation["ok"]) and bool(retrieval["ok"]) and bool(evidence_hit)
+    return {
+        "citation": citation,
+        "retrieval": retrieval,
+        "evidence_hit": evidence_hit,  
+        "ok": ok,
+    }
 
 def get_base_dir() -> str:
     return os.getenv("KB_STORAGE_DIR", DEFAULT_STORAGE_DIR)
@@ -315,39 +328,93 @@ def get_chunk_rest(kb_id: str, chunk_id: str):
 
 
 @app.post("/ask-kb")
-async def ask_kb(req:AskRequest):
-    kb_id = req.kb_id
-    query = req.query
-    fetch_k = req.fetch_k
-    top_k = req.top_k
-    base_dir = get_base_dir()
+async def ask_kb(req: AskRequest):
+    try:
+        kb_id = req.kb_id
+        query = req.query
+        fetch_k = req.fetch_k
+        top_k = req.top_k
+        base_dir = get_base_dir()
 
-    vs = load_kb(kb_id=kb_id, base_dir=base_dir)
-    candidates = search_top_k(vs, query=query, k=fetch_k)
-    results = rerank_docs(query=query, docs=candidates, top_k=top_k)
+        vs = load_kb(kb_id=kb_id, base_dir=base_dir)
+        candidates = search_top_k(vs, query=query, k=fetch_k)
+        results = rerank_docs(query=query, docs=candidates, top_k=top_k)
 
-    context, sources, source_map = build_context_with_citations(results)
-    answer = generate_answer_gemini(query=query, context=context)
+        context, sources, source_map = build_context_with_citations(results)
+        answer = generate_answer_gemini(query=query, context=context)
 
-    report = build_eval_report(answer=answer, source_map=source_map, retrieved_docs=results)
-    gate = apply_quality_gate(report)
+        report = build_eval_report(answer=answer, source_map=source_map, retrieved_docs=results)
+        gate = quality_gate_decision(report)
+        final_answer = answer
+        final_sources = sources
+        final_source_map = source_map
+        final_report = report
+        fallback_used = False
 
-    if gate["decision"] == "fallback":
-        answer = build_fallback_answer(sources)
-    elif gate["decision"] == "reject":
-        answer = "I could not generate a grounded answer for this query."
+        if gate["decision"] in ("reject", "fallback"):
+            fallback_used = True
+            final_sources = sources[:3]
 
-    return {
-        "kb_id": kb_id,
-        "query": query,
-        "fetch_k": fetch_k,
-        "top_k": top_k,
-        "answer": answer,
-        "sources": sources,
-        "source_map": source_map,
-        "evaluation": report,        # ✅ 建议叫 evaluation（更语义化）
-        "quality_gate": gate,
-    }
+            filtered_source_map = {}
+            for s in final_sources:
+                sid = s.get("source_id")
+                if sid and sid in source_map:
+                    filtered_source_map[sid] = source_map[sid]
+            final_source_map = filtered_source_map
+
+            final_answer = build_fallback_answer(final_sources, max_sources=3)
+
+            # ✅ re-evaluate final output (optional but recommended)
+            final_report = build_eval_report(
+                answer=final_answer,
+                source_map=final_source_map,
+                retrieved_docs=results,
+            )
+            gate["decision"] = "fallback"  # update decision to reflect fallback usage
+
+        # ✅ metrics for observability
+        try:
+            metrics = {
+                "citation_used": len(final_report.get("citation", {}).get("used", []) or []),
+                "citation_missing": len(final_report.get("citation", {}).get("missing", []) or []),
+                "retrieval_used_chunks": len(final_report.get("retrieval", {}).get("used_chunk_ids", []) or []),
+                "evidence_hit": final_report.get("evidence_hit"),
+            }
+            # Day 21: Emit logs for observability
+            emit_quality_metrics(
+                kb_id=kb_id,
+                query=query,
+                evaluation=final_report,
+                quality_gate=gate
+            )
+        except Exception as e:
+            print(f"Metrics calculation error: {e}")
+            metrics = {}
+
+        return {
+            "kb_id": kb_id,
+            "query": query,
+            "fetch_k": fetch_k,
+            "top_k": top_k,
+
+            # ✅ what user sees
+            "answer": final_answer,
+            "sources": final_sources,
+            "source_map": final_source_map,
+
+            # ✅ debug: why model output was rejected
+            # ✅ debug: why model output was rejected
+            "evaluation": report,
+            "quality_gate": gate,
+            "fallback_used": fallback_used,
+            "metrics": metrics,
+
+            # ✅ optional: evaluation of the final returned answer
+            "final_evaluation": final_report,
+        }
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse(status_code=500, content={"error": str(e), "traceback": traceback.format_exc()})
 
 @app.post("/ask-kb-stream")
 async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
@@ -403,12 +470,10 @@ async def ask_kb_stream(kb_id: str, query: str = "What is the main topic?"):
             final_answer = "".join(final_text_parts).strip()
 
             report = build_eval_report(answer=final_answer, source_map=source_map, retrieved_docs=results)
-            gate = apply_quality_gate(report)
+            gate = quality_gate_decision(report)
 
-            if gate["decision"] == "fallback":
+            if gate["decision"] == "reject":
                 final_answer = build_fallback_answer(sources)
-            elif gate["decision"] == "reject":
-                final_answer = "I could not generate a grounded answer for this query."
 
             yield ServerSentEvent(
                 event="done",
@@ -446,7 +511,6 @@ def get_chunk(
         "chunk_id": chunk_id,
         "page_content": doc.page_content if include_content else None,
         "metadata": md,
-        # 这些扁平字段是 UI 友好的，可保留
         "filename": md.get("filename"),
         "page": md.get("page"),
         "page_label": md.get("page_label"),

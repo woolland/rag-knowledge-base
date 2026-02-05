@@ -108,7 +108,6 @@ def summarize(all_cases: List[Dict[str, Any]]) -> Dict[str, Any]:
     citation_ok = sum(1 for c in all_cases if c["citation"].get("ok") is True)
     retrieval_ok = sum(1 for c in all_cases if c["retrieval"].get("ok") is True)
 
-    # evidence_hit 只对写了 expected_chunk_ids 的 case 统计
     evidence_cases = [c for c in all_cases if c.get("evidence_hit") is not None]
     evidence_hit = sum(1 for c in evidence_cases if c.get("evidence_hit") is True)
     evidence_total = len(evidence_cases)

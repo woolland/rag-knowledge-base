@@ -1,0 +1,38 @@
+name: RAG Quality Gate Regression
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          pip install -r backend/requirements.txt
+
+      - name: Start RAG backend
+        run: |
+          bash scripts/ci_start.sh
+
+      - name: Run quality gate regression
+        run: |
+          bash scripts/gate_regression.sh
+
+      - name: Stop server
+        if: always()
+        run: |
+          if [ -f /tmp/rag_server.pid ]; then
+            kill $(cat /tmp/rag_server.pid)
+          fi

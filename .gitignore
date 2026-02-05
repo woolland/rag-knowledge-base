@@ -1,6 +1,19 @@
-.env
+# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
+
+# OS
 .DS_Store
+
+# Secrets
+.env
+.env.*
+
+# Storage (VERY IMPORTANT)
+storage/kb/*
+!storage/kb/demo/**
+
+# Logs / temp
+/tmp/
