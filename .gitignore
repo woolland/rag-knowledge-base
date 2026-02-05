@@ -17,3 +17,6 @@ storage/kb/*
 
 # Logs / temp
 /tmp/
+
+# Interview prep (personal)
+docs/interview.md
