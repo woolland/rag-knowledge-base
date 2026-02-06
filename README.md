@@ -1,29 +1,54 @@
 # RAG Knowledge Base System
 
-A strictly engineered Retrieval-Augmented Generation (RAG) system designed for high-reliability knowledge retrieval.
+A production-minded Retrieval-Augmented Generation (RAG) backend engineered for **high reliability, grounded answers, and deterministic behavior**.
 
+> This project focuses on *preventing hallucinations* and *making LLM failures explicit*, rather than maximizing raw answer recall.
+
+---
+
+## Why This RAG Is Different
+
+Most RAG demos stop at “it works on my PDF.”  
+This system is designed around **correctness guarantees**:
+
+* **Post-generation Quality Gate** — answers are verified *after* LLM generation
+* **Deterministic regression testing** for stochastic LLM behavior
+* **Explicit failure modes** (`accept` / `fallback` / `reject`), never silent hallucination
+
+---
 ## System Guarantees & Non-Goals
 
 ### Guarantees
-This system is engineered to provide the following verifiable guarantees:
 
-*   **Groundedness Guarantee**: All answers are derived *strictly* from retrieved evidence. Ungrounded answers trigger an automatic fallback or rejection via the Quality Gate.
-*   **Citation Integrity Guarantee**: Every factual claim in an answer must reference a valid source citation `[S#]`. Missing or unused citations are detected and flagged.
-*   **Failure Transparency Guarantee**: The system never hallucinates silently. Failures are explicitly surfaced as:
-    *   `reject`: System-level error or complete retrieval failure.
-    *   `fallback`: Safe, grounded summary when evidence is insufficient.
-    *   Explicit "I don't know based on the provided document" response.
-*   **Regression Stability Guarantee**: All critical behaviors (Quality Gate decisions, Fallback logic) are covered by a regression suite (`scripts/gate_regression.sh`). LLM behavior is mocked to ensure deterministic testing.
+This system provides the following **verifiable guarantees**:
+
+* **Groundedness Guarantee**  
+  All answers are derived *strictly* from retrieved evidence. Ungrounded answers trigger an automatic fallback or rejection via the Quality Gate.
+
+* **Citation Integrity Guarantee**  
+  Every factual claim must reference a valid citation `[S#]`. Missing, unused, or fabricated citations are detected.
+
+* **Failure Transparency Guarantee**  
+  The system never hallucinates silently. All failures are surfaced explicitly as:
+  * `accept`: Answer is grounded and evidence-backed
+  * `fallback`: Safe, citation-only summary when evidence is insufficient
+  * `reject`: Retrieval or system-level failure
+
+* **Regression Stability Guarantee**  
+  All critical behaviors are covered by a regression suite (`scripts/gate_regression.sh`).  
+  LLM responses are mocked to ensure deterministic testing without API quota dependency.
+
+---
 
 ### Non-Goals
-To maintain specialized reliability, this system explicitly **does not** aim to be:
-*   ❌ A general knowledge chatbot (it will not answer questions outside its Knowledge Base).
-*   ❌ Optimized for creative or speculative writing.
-*   ❌ A "black box" AI wrapper (internals are observable via structured metrics).
 
-## System Contracts
+To preserve reliability, this system intentionally **does not** aim to be:
 
-The system enforces the following contracts during the Answer Generation phase.
+* ❌ A general-purpose chatbot
+* ❌ Optimized for creative or speculative writing
+* ❌ A black-box LLM wrapper (all internals are observable)
+
+---
 
 ### Contract: Answer Generation Flow
 
